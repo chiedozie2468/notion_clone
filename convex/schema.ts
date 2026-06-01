@@ -25,6 +25,9 @@ export default defineSchema({
     name: v.string(),
     slug: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    billingPlanSlug: v.optional(v.string()),
+    billingStatus: v.optional(v.string()),
+    billingSubscriptionId: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
@@ -71,6 +74,7 @@ export default defineSchema({
     title: v.string(),
     icon: v.optional(v.string()),
     coverImage: v.optional(v.string()),
+    coverImageStorageId: v.optional(v.id("_storage")),
     isArchived: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -79,7 +83,22 @@ export default defineSchema({
     .index("by_organization_id", ["organizationId"])
     .index("by_clerk_org_id", ["clerkOrgId"])
     .index("by_parent_id", ["parentId"])
-    .index("by_workspace_id", ["workspaceId"]),
+    .index("by_workspace_id", ["workspaceId"])
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["clerkOrgId", "workspaceId"],
+    }),
+
+  documentFavorites: defineTable({
+    organizationId: v.id("organizations"),
+    clerkOrgId: v.string(),
+    userId: v.id("users"),
+    documentId: v.id("documents"),
+    workspaceId: v.optional(v.id("workspaces")),
+    createdAt: v.number(),
+  })
+    .index("by_user_and_org", ["userId", "organizationId"])
+    .index("by_document_and_user", ["documentId", "userId"]),
 
   aiUsage: defineTable({
     clerkOrgId: v.string(),

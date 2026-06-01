@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { ChevronDown, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "@/convex/_generated/api";
+import { usePlanLimitHandler } from "@/hooks/use-plan-limit-handler";
 import { useWorkspaceStorage } from "@/hooks/use-workspace-storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,14 +25,16 @@ export function WorkspaceSwitcher() {
   );
   const getOrCreateDefault = useMutation(api.workspaces.getOrCreateDefault);
   const createWorkspace = useMutation(api.workspaces.create);
+  const handlePlanLimit = usePlanLimitHandler();
 
   useEffect(() => {
     if (!clerkOrgId) {
       return;
     }
     void getOrCreateDefault({ clerkOrgId }).then((ws) => {
-      if (!workspaceId) {
-        setWorkspaceId(ws._id);
+      // Safely check that ws is returned and workspaceId is not yet set
+      if (ws && !workspaceId) {
+        setWorkspaceId((ws as any)._id);
       }
     });
   }, [clerkOrgId, getOrCreateDefault, setWorkspaceId, workspaceId]);
@@ -102,11 +105,15 @@ export function WorkspaceSwitcher() {
             if (!name) {
               return;
             }
-            void createWorkspace({ clerkOrgId, name }).then((ws) => {
-              setWorkspaceId(ws._id);
-              setNewName("");
-              setCreating(false);
-            });
+            void createWorkspace({ clerkOrgId, name })
+              .then((ws) => {
+                setWorkspaceId(ws._id);
+                setNewName("");
+                setCreating(false);
+              })
+              .catch((error) => {
+                handlePlanLimit(error);
+              });
           }}
         >
           <Input

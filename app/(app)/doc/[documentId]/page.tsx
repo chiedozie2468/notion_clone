@@ -3,6 +3,9 @@
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { useParams } from "next/navigation";
+import { CollaborativeEditor } from "@/components/editor/collaborative-editor";
+import { DocumentHeader } from "@/components/editor/document-header";
+import { DocumentBreadcrumbs } from "@/components/navigation/document-breadcrumbs";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -44,22 +47,18 @@ export default function DocumentPage() {
       <main className="p-6">
         <h1 className="text-2xl font-semibold">{document.title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This is a folder. Open a child page from the sidebar, or add pages
-          inside this folder.
+          This is a folder. Open a child page from the sidebar.
         </p>
       </main>
     );
   }
 
   return (
-    <main className="flex h-full flex-col p-6 md:p-10">
-      <h1 className="text-2xl font-semibold tracking-tight">{document.title}</h1>
-      <p className="mt-4 max-w-xl text-sm text-muted-foreground">
-        Collaborative BlockNote editor will be added in Phase 3. Content is
-        stored via Convex prosemirror-sync.
-      </p>
-      <div className="mt-8 flex-1 rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-        Editor placeholder
+    <main className="flex h-full min-h-0 flex-col overflow-y-auto p-6 md:p-10">
+      <DocumentBreadcrumbs documentId={documentId} className="mb-4" />
+      <DocumentHeader document={document} />
+      <div className="mt-6 min-h-0 flex-1">
+        <CollaborativeEditor documentId={documentId} />
       </div>
     </main>
   );

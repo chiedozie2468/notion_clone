@@ -7,6 +7,7 @@ import {
   FileText,
   Folder,
   MoreHorizontal,
+  Star,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -23,6 +24,8 @@ type Props = {
   workspaceId: Id<"workspaces">;
   depth: number;
   activeDocumentId?: Id<"documents">;
+  favoriteIds: Set<Id<"documents">>;
+  onCreateError: (error: unknown) => void;
 };
 
 export function DocumentTreeItem({
@@ -31,7 +34,10 @@ export function DocumentTreeItem({
   workspaceId,
   depth,
   activeDocumentId,
+  favoriteIds,
+  onCreateError,
 }: Props) {
+  const isFavorited = favoriteIds.has(node._id);
   const router = useRouter();
   const [expanded, setExpanded] = useState(true);
   const [renaming, setRenaming] = useState(false);
@@ -42,6 +48,8 @@ export function DocumentTreeItem({
   const renameDocument = useMutation(api.documents.rename);
   const moveDocument = useMutation(api.documents.move);
   const archiveDocument = useMutation(api.documents.setArchived);
+  const moveToTrash = useMutation(api.documents.moveToTrash);
+  const toggleFavorite = useMutation(api.favorites.toggle);
 
   const isFolder = node.type === "folder";
   const isActive = activeDocumentId === node._id;
@@ -125,6 +133,24 @@ export function DocumentTreeItem({
           </button>
         )}
 
+        <button
+          type="button"
+          className={cn(
+            "flex size-6 shrink-0 items-center justify-center rounded-sm",
+            isFavorited
+              ? "text-amber-500 opacity-100"
+              : "opacity-0 group-hover:opacity-100",
+          )}
+          aria-label={isFavorited ? "Remove favorite" : "Add favorite"}
+          onClick={() => {
+            void toggleFavorite({ clerkOrgId, documentId: node._id });
+          }}
+        >
+          <Star
+            className={cn("size-3.5", isFavorited && "fill-current")}
+          />
+        </button>
+
         <div className="relative opacity-0 group-hover:opacity-100">
           <button
             type="button"
@@ -153,9 +179,11 @@ export function DocumentTreeItem({
                         workspaceId,
                         parentId: node._id,
                         type: "page",
-                      }).then((id) => {
-                        router.push(`/doc/${id}`);
-                      });
+                      })
+                        .then((id) => {
+                          router.push(`/doc/${id}`);
+                        })
+                        .catch(onCreateError);
                       setMenuOpen(false);
                     }}
                   />
@@ -167,7 +195,7 @@ export function DocumentTreeItem({
                         workspaceId,
                         parentId: node._id,
                         type: "folder",
-                      });
+                      }).catch(onCreateError);
                       setMenuOpen(false);
                     }}
                   />
@@ -185,12 +213,33 @@ export function DocumentTreeItem({
                 }}
               />
               <MenuButton
+                label="Favorite"
+                onClick={() => {
+                  void toggleFavorite({ clerkOrgId, documentId: node._id });
+                  setMenuOpen(false);
+                }}
+              />
+              <MenuButton
                 label="Archive"
                 onClick={() => {
                   void archiveDocument({
                     clerkOrgId,
                     documentId: node._id,
                     isArchived: true,
+                  });
+                  setMenuOpen(false);
+                }}
+              />
+              <MenuButton
+                label="Move to trash"
+                onClick={() => {
+                  void moveToTrash({
+                    clerkOrgId,
+                    documentId: node._id,
+                  }).then(() => {
+                    if (activeDocumentId === node._id) {
+                      router.push("/");
+                    }
                   });
                   setMenuOpen(false);
                 }}
@@ -210,6 +259,8 @@ export function DocumentTreeItem({
               workspaceId={workspaceId}
               depth={depth + 1}
               activeDocumentId={activeDocumentId}
+              favoriteIds={favoriteIds}
+              onCreateError={onCreateError}
             />
           ))}
         </div>

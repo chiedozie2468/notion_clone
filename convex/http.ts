@@ -39,6 +39,39 @@ http.route({
 
     const data = event.data;
 
+    const syncOrgBilling = async (
+      clerkOrgId: string,
+      billingPlanSlug: string,
+      billingStatus: string,
+      billingSubscriptionId?: string,
+    ) => {
+      await ctx.runMutation(internal.clerkSync.updateOrganizationBilling, {
+        clerkOrgId,
+        billingPlanSlug,
+        billingStatus,
+        billingSubscriptionId,
+      });
+    };
+
+    const orgIdFromPayer = (): string | undefined => {
+      const payer = data.payer as
+        | { organization_id?: string; user_id?: string }
+        | undefined;
+      return payer?.organization_id;
+    };
+
+    const planSlugFromPayload = (): string => {
+      const items = data.items as
+        | Array<{ plan?: { slug?: string } }>
+        | undefined;
+      const fromItems = items?.[0]?.plan?.slug;
+      if (fromItems) {
+        return fromItems;
+      }
+      const plan = data.plan as { slug?: string } | undefined;
+      return plan?.slug ?? "free_org";
+    };
+
     switch (event.type) {
       case "user.created":
       case "user.updated": {
@@ -110,6 +143,56 @@ http.route({
           clerkOrgId: organization.id,
           clerkUserId: publicUserData.user_id,
         });
+        break;
+      }
+      case "subscription.created":
+      case "subscription.updated":
+      case "subscription.active": {
+        const clerkOrgId = orgIdFromPayer();
+        if (!clerkOrgId) {
+          break;
+        }
+        await syncOrgBilling(
+          clerkOrgId,
+          planSlugFromPayload(),
+          (data.status as string) ?? "active",
+          data.id as string,
+        );
+        break;
+      }
+      case "subscription.pastDue": {
+        const clerkOrgId = orgIdFromPayer();
+        if (!clerkOrgId) {
+          break;
+        }
+        await syncOrgBilling(
+          clerkOrgId,
+          planSlugFromPayload(),
+          "past_due",
+          data.id as string,
+        );
+        break;
+      }
+      case "subscriptionItem.canceled":
+      case "subscriptionItem.ended":
+      case "subscriptionItem.expired": {
+        const clerkOrgId = orgIdFromPayer();
+        if (!clerkOrgId) {
+          break;
+        }
+        await syncOrgBilling(clerkOrgId, "free_org", "canceled");
+        break;
+      }
+      case "subscriptionItem.active": {
+        const clerkOrgId = orgIdFromPayer();
+        if (!clerkOrgId) {
+          break;
+        }
+        await syncOrgBilling(
+          clerkOrgId,
+          planSlugFromPayload(),
+          "active",
+        );
         break;
       }
       default:

@@ -92,9 +92,43 @@ export const upsertOrganization = internalMutation({
       name: args.name,
       slug: args.slug,
       imageUrl: args.imageUrl,
+      billingPlanSlug: "free_org",
+      billingStatus: "active",
       createdAt: timestamp,
       updatedAt: timestamp,
     });
+  },
+});
+
+export const updateOrganizationBilling = internalMutation({
+  args: {
+    clerkOrgId: v.string(),
+    billingPlanSlug: v.string(),
+    billingStatus: v.string(),
+    billingSubscriptionId: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const organization = await ctx.db
+      .query("organizations")
+      .withIndex("by_clerk_org_id", (q) => q.eq("clerkOrgId", args.clerkOrgId))
+      .unique();
+
+    if (!organization) {
+      console.warn(
+        "Skipping billing update; organization missing",
+        args.clerkOrgId,
+      );
+      return null;
+    }
+
+    await ctx.db.patch(organization._id, {
+      billingPlanSlug: args.billingPlanSlug,
+      billingStatus: args.billingStatus,
+      billingSubscriptionId: args.billingSubscriptionId,
+      updatedAt: now(),
+    });
+    return null;
   },
 });
 

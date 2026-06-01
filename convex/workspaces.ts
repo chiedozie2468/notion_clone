@@ -1,6 +1,9 @@
+// 📍 File: convex/workspaces.ts
+
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { canWrite, requireOrgMember, requireWorkspaceInOrg } from "./lib/auth";
+import { canWrite, requireOrgMember } from "./lib/auth";
+import type { OrgAuth } from "./lib/auth";
 
 const workspaceSummary = v.object({
   _id: v.id("workspaces"),
@@ -11,13 +14,11 @@ const workspaceSummary = v.object({
 const now = () => Date.now();
 
 function slugify(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "workspace"
-  );
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "workspace";
 }
 
 export const listForOrg = query({
@@ -42,9 +43,20 @@ export const listForOrg = query({
 
 export const getOrCreateDefault = mutation({
   args: { clerkOrgId: v.string() },
-  returns: workspaceSummary,
+  returns: v.union(workspaceSummary, v.null()),
   handler: async (ctx, args) => {
-    const { organization, role } = await requireOrgMember(ctx, args.clerkOrgId);
+    let orgData: OrgAuth | null = null;
+    try {
+      orgData = await requireOrgMember(ctx, args.clerkOrgId);
+    } catch (e) {
+      if (e instanceof Error && e.message === "User profile not found") {
+        return null;
+      }
+      throw e;
+    }
+
+    if (!orgData) return null;
+    const { organization, role } = orgData;
 
     const existing = await ctx.db
       .query("workspaces")
@@ -55,8 +67,7 @@ export const getOrCreateDefault = mutation({
 
     const active = existing.filter((w) => !w.deletedAt);
     if (active.length > 0) {
-      const preferred =
-        active.find((w) => w.slug === "general") ?? active[0]!;
+      const preferred = active.find((w) => w.slug === "general") ?? active[0]!;
       return {
         _id: preferred._id,
         name: preferred.name,
@@ -96,34 +107,20 @@ export const create = mutation({
       throw new Error("Insufficient permissions");
     }
 
-    const baseSlug = slugify(args.name);
-    let slug = baseSlug;
-    let suffix = 1;
-
-    while (true) {
-      const conflict = await ctx.db
-        .query("workspaces")
-        .withIndex("by_org_and_slug", (q) =>
-          q.eq("organizationId", organization._id).eq("slug", slug),
-        )
-        .unique();
-      if (!conflict || conflict.deletedAt) {
-        break;
-      }
-      slug = `${baseSlug}-${suffix++}`;
-    }
-
     const timestamp = now();
+    const trimmedName = args.name.trim();
+    const slug = slugify(trimmedName);
+
     const workspaceId = await ctx.db.insert("workspaces", {
       organizationId: organization._id,
       clerkOrgId: args.clerkOrgId,
-      name: args.name.trim(),
+      name: trimmedName,
       slug,
       createdAt: timestamp,
       updatedAt: timestamp,
     });
 
-    return { _id: workspaceId, name: args.name.trim(), slug };
+    return { _id: workspaceId, name: trimmedName, slug };
   },
 });
 
@@ -135,16 +132,12 @@ export const rename = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { role, workspace } = await requireWorkspaceInOrg(
-      ctx,
-      args.clerkOrgId,
-      args.workspaceId,
-    );
+    const { role } = await requireOrgMember(ctx, args.clerkOrgId);
     if (!canWrite(role)) {
       throw new Error("Insufficient permissions");
     }
 
-    await ctx.db.patch(workspace._id, {
+    await ctx.db.patch(args.workspaceId, {
       name: args.name.trim(),
       updatedAt: now(),
     });

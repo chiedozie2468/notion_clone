@@ -81,3 +81,9 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* BlockNote inside app theme */
+.notion-editor .bn-editor {
+  background: transparent;
+  padding: 0;
+}

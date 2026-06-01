@@ -7,6 +7,7 @@ import { FilePlus, FolderPlus } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
+import { usePlanLimitHandler } from "@/hooks/use-plan-limit-handler";
 import { useWorkspaceStorage } from "@/hooks/use-workspace-storage";
 import { buildDocumentTree } from "@/lib/document-tree";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,18 @@ export function DocumentTree() {
       : "skip",
   );
 
+  const favoriteDocumentIds = useQuery(
+    api.favorites.listDocumentIds,
+    clerkOrgId ? { clerkOrgId } : "skip",
+  );
+
   const createDocument = useMutation(api.documents.create);
+  const handlePlanLimit = usePlanLimitHandler();
+  const favoriteIds = new Set(favoriteDocumentIds ?? []);
+
+  const onCreateError = (error: unknown) => {
+    handlePlanLimit(error);
+  };
 
   if (!clerkOrgId || !workspaceId) {
     return null;
@@ -51,7 +63,9 @@ export function DocumentTree() {
               clerkOrgId,
               workspaceId,
               type: "page",
-            }).then((id) => router.push(`/doc/${id}`));
+            })
+              .then((id) => router.push(`/doc/${id}`))
+              .catch(onCreateError);
           }}
         >
           <FilePlus className="size-4" />
@@ -66,7 +80,7 @@ export function DocumentTree() {
               clerkOrgId,
               workspaceId,
               type: "folder",
-            });
+            }).catch(onCreateError);
           }}
         >
           <FolderPlus className="size-4" />
@@ -90,6 +104,8 @@ export function DocumentTree() {
               workspaceId={workspaceId}
               depth={0}
               activeDocumentId={activeDocumentId}
+              favoriteIds={favoriteIds}
+              onCreateError={onCreateError}
             />
           ))
         )}
