@@ -9,10 +9,13 @@
  */
 
 import type * as clerkSync from "../clerkSync.js";
+import type * as documents from "../documents.js";
 import type * as http from "../http.js";
+import type * as lib_auth from "../lib/auth.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as organizations from "../organizations.js";
 import type * as users from "../users.js";
+import type * as workspaces from "../workspaces.js";
 
 import type {
   ApiFromModules,
@@ -22,10 +25,13 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   clerkSync: typeof clerkSync;
+  documents: typeof documents;
   http: typeof http;
+  "lib/auth": typeof lib_auth;
   "lib/roles": typeof lib_roles;
   organizations: typeof organizations;
   users: typeof users;
+  workspaces: typeof workspaces;
 }>;
 
 /**
