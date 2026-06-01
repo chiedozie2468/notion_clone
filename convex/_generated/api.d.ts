@@ -8,6 +8,10 @@
  * @module
  */
 
+import type * as clerkSync from "../clerkSync.js";
+import type * as http from "../http.js";
+import type * as lib_roles from "../lib/roles.js";
+import type * as organizations from "../organizations.js";
 import type * as users from "../users.js";
 
 import type {
@@ -17,6 +21,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  clerkSync: typeof clerkSync;
+  http: typeof http;
+  "lib/roles": typeof lib_roles;
+  organizations: typeof organizations;
   users: typeof users;
 }>;
 
